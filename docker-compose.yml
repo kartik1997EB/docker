@@ -1,0 +1,77 @@
+version: '3'
+services: 
+ db :
+  build : 
+   context: "./VirtualTour/mariaDB"
+   dockerfile: "Dockerfile"
+  environment: 
+   - MYSQL_ROOT_PASSWORD=mindfire
+   - MYSQL_DATABASE=virtual
+   - MYSQL_USER=kartik
+   - MYSQL_PASSWORD=emperor
+  labels:
+   - "traefik.enable=true"
+   - "traefik.http.routers.db.rule=Host(`db.virtual.localhost`)"
+   - "traefik.http.routers.db.entrypoints=web"
+  volumes: 
+   - ./VirtualTour/mariaDB/db:/var/lib/mysql
+ ui:
+  build:
+   context: "./VirtualTour/Font"
+   dockerfile: "Dockerfile"
+  volumes: 
+   - "./VirtualTour/Font/vertualFont:/app"
+  ports:
+   - "4200:4200"
+  labels:
+   - "traefik.enable=true"
+   - "traefik.http.routers.ui.rule=Host(`ui.virtual.localhost`)"
+   - "traefik.http.routers.ui.entrypoints=web"
+ api:
+  container_name: sprinBoot
+  build:
+   context: "./VirtualTour/Api"
+   dockerfile: "Dockerfile"
+  env_file: "./credentials.env"
+  volumes:
+   - "./VirtualTour/Api/vertualApi:/api"
+  ports:
+   - "8055:8080"
+  depends_on :
+   - db
+  restart: always
+  labels:
+   - "traefik.enable=true"
+   - "traefik.http.routers.api.rule=Host(`api.virtual.localhost`)"
+   - "traefik.http.routers.api.entrypoints=web"
+ phpmyadmin :
+  image: phpmyadmin/phpmyadmin
+  ports : 
+   - "8051:80"
+  environment:
+   - PMA_HOST=db
+  links:
+   - db
+  labels:
+   - "traefik.enable=true"
+   - "traefik.http.routers.dbadmin.rule=Host(`admin.virtual.localhost`)"
+   - "traefik.http.routers.dbadmin.entrypoints=web"
+ traefik:
+  image: traefik:2.1.3
+  command: 
+   - "--api.insecure=true"
+   - "--providers.docker=true"
+   - "--providers.docker.exposedbydefault=false"
+   - "--entrypoints.web.address=:80"
+  ports:
+   - "8080:8080"
+   - "80:80"
+  volumes:
+   - "/var/run/docker.sock:/var/run/docker.sock:ro"
+  labels:
+   - "traefik.enable=true"
+   - "traefik.http.routers.traefik.rule=Host(`traefik.virtual.localhost`)"
+   - "traefik.http.routers.traefik.entrypoints=web"
+   - "traefik.http.routers.traefik.service=api@internal"
+   - "traefik.http.routers.traefik.middlewares=auth"
+   - "traefik.http.middlewares.auth.basicauth.users=kartik:$$2a$$09$$Gdu85mxZpnSCCJV9NXuYo.Lxd9Pawk19wBTSBGNRjMTCTwFcO6npa"
